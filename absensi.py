@@ -83,6 +83,11 @@ with col1:
         try:
           # Kirim data ke Google Sheets via Web App
           response = requests.post(WEB_APP_URL, json=payload)
+          
+          # ---> TAMBAHKAN BARIS INI UNTUK MELIHAT RESPON ASLI <---
+          st.write("Status Code:", response.status_code)
+          st.write("Response Text:", response.text)
+          
           if response.status_code == 200:
             st.success(
                 f"✅ Terima kasih, {nama}! Absensi Anda berhasil disimpan ke"
