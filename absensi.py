@@ -11,7 +11,7 @@ st.set_page_config(
 # ==========================================
 # GANTI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA
 # ==========================================
-WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz_VabQDsS3-L6qSPT-GUghZ1h0EXqr5ikgV_u9ds9dxavdirllqOg0fMna57UIZU2xYg/exec"
+WEB_APP_URL = https://script.google.com/macros/s/AKfycbz_VabQDsS3-L6qSPT-GUghZ1h0EXqr5ikgV_u9ds9dxavdirllqOg0fMna57UIZU2xYg/exec
 
 
 # Fungsi untuk mengambil data dari Google Sheets
