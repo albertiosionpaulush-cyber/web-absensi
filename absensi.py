@@ -1,6 +1,6 @@
-import os
 from datetime import datetime
 import pandas as pd
+import requests
 import streamlit as st
 
 # Konfigurasi Halaman Web
@@ -8,36 +8,45 @@ st.set_page_config(
     page_title="Aplikasi Absensi Online", page_icon="📝", layout="wide"
 )
 
-# File untuk menyimpan data absensi secara permanen
-DATA_FILE = "absensi_data.csv"
+# ==========================================
+# GANTI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA
+# ==========================================
+WEB_APP_URL = "MASUKKAN_URL_WEB_APP_ANDA_DI_SINI"
 
 
-# Fungsi untuk memuat data
-def load_data():
-  if os.path.exists(DATA_FILE):
-    return pd.read_csv(DATA_FILE)
-  else:
-    # Membuat DataFrame kosong jika file belum ada
+# Fungsi untuk mengambil data dari Google Sheets
+def load_data_from_sheet():
+  if WEB_APP_URL == "MASUKKAN_URL_WEB_APP_ANDA_DI_SINI":
+    return pd.DataFrame(columns=["Waktu", "Nama", "Status", "Keterangan"])
+  try:
+    response = requests.get(WEB_APP_URL)
+    if response.status_code == 200:
+      data = response.json()
+      if data:
+        return pd.DataFrame(data)
+    return pd.DataFrame(columns=["Waktu", "Nama", "Status", "Keterangan"])
+  except Exception:
     return pd.DataFrame(columns=["Waktu", "Nama", "Status", "Keterangan"])
 
 
-# Fungsi untuk menyimpan data
-def save_data(df):
-  df.to_csv(DATA_FILE, index=False)
-
-
 # Load data saat aplikasi dibuka
-df_absensi = load_data()
+df_absensi = load_data_from_sheet()
 
 # --- TAMPILAN ANTARMUKA (UI) ---
-st.title("📝 Sistem Absensi Online")
+st.title("📝 Sistem Absensi Online (Google Sheets)")
 st.markdown(
     "Silakan isi form di bawah ini untuk melakukan absensi kehadiran, izin,"
     " atau sakit."
 )
 st.markdown("---")
 
-# Layout menjadi 2 kolom (Kolom Form & Kolom Rekap/Live Feed)
+if WEB_APP_URL == "MASUKKAN_URL_WEB_APP_ANDA_DI_SINI":
+  st.error(
+      "⚠️ Perhatian: URL Google Apps Script belum dimasukkan di dalam kodenya!"
+      " Harap isi variabel `WEB_APP_URL` terlebih dahulu."
+  )
+
+# Layout menjadi 2 kolom
 col1, col2 = st.columns([1, 2], gap="large")
 
 with col1:
@@ -59,48 +68,68 @@ with col1:
     if submit_button:
       if nama.strip() == "":
         st.warning("⚠️ Mohon masukkan nama lengkap Anda terlebih dahulu!")
+      elif WEB_APP_URL == "MASUKKAN_URL_WEB_APP_ANDA_DI_SINI":
+        st.error("⚠️ URL Google Sheets belum dikonfigurasi!")
       else:
-        # Waktu saat ini (WITA/WIB sesuai sistem)
         waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Data baru
-        new_row = pd.DataFrame({
-            "Waktu": [waktu_sekarang],
-            "Nama": [nama],
-            "Status": [status],
-            "Keterangan": [keterangan if keterangan else "-"],
-        })
+        payload = {
+            "waktu": waktu_sekarang,
+            "nama": nama,
+            "status": status,
+            "keterangan": keterangan if keterangan else "-",
+        }
 
-        # Gabungkan dan simpan
-        df_absensi = pd.concat([df_absensi, new_row], ignore_index=True)
-        save_data(df_absensi)
-
-        st.success(f"✅ Terima kasih, {nama}! Absensi Anda berhasil dicatat.")
-        st.rerun()
+        try:
+          # Kirim data ke Google Sheets via Web App
+          response = requests.post(WEB_APP_URL, json=payload)
+          if response.status_code == 200:
+            st.success(
+                f"✅ Terima kasih, {nama}! Absensi Anda berhasil disimpan ke"
+                " Google Sheets."
+            )
+            st.rerun()
+          else:
+            st.error("❌ Gagal menyimpan ke Google Sheets. Coba lagi.")
+        except Exception as e:
+          st.error(f"Terjadi kesalahan koneksi: {e}")
 
 with col2:
   st.subheader("📊 Data & Progres Absensi Terkini")
 
   if df_absensi.empty:
     st.info(
-        "Belum ada data absensi yang masuk. Jadilah yang pertama mengisi!"
+        "Belum ada data absensi yang masuk atau sedang memuat dari Google"
+        " Sheets."
     )
   else:
-    # Filter Pencarian atau Status
+    # Filter Status
     filter_status = st.selectbox(
         "Filter berdasarkan Status:", ["Semua", "Hadir", "Izin", "Sakit"]
     )
 
-    if filter_status != "Semua":
+    if filter_status != "Semua" and "Status" in df_absensi.columns:
       df_display = df_absensi[df_absensi["Status"] == filter_status]
     else:
       df_display = df_absensi
 
     # Statistik Ringkas
-    total_hadir = len(df_absensi[df_absensi["Status"] == "Hadir"])
-    total_izin = len(df_absensi[df_absensi["Status"] == "Izin"])
-    total_sakit = len(df_absensi[df_absensi["Status"] == "Sakit"])
     total_semua = len(df_absensi)
+    total_hadir = (
+        len(df_absensi[df_absensi["Status"] == "Hadir"])
+        if "Status" in df_absensi.columns
+        else 0
+    )
+    total_izin = (
+        len(df_absensi[df_absensi["Status"] == "Izin"])
+        if "Status" in df_absensi.columns
+        else 0
+    )
+    total_sakit = (
+        len(df_absensi[df_absensi["Status"] == "Sakit"])
+        if "Status" in df_absensi.columns
+        else 0
+    )
 
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Total Absen", total_semua)
@@ -110,9 +139,9 @@ with col2:
 
     st.markdown("---")
 
-    # Tabel Data (Urut dari yang terbaru)
+    # Tabel Data
     st.dataframe(df_display.iloc[::-1], use_container_width=True, hide_index=True)
 
-    # Tombol Refresh untuk melihat pembaruan dari perangkat lain
+    # Tombol Refresh
     if st.button("🔄 Refresh Data"):
       st.rerun()
